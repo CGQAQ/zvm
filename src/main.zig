@@ -1,24 +1,50 @@
 const std = @import("std");
 
-pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
-
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
-
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-
-    try bw.flush(); // don't forget to flush!
+fn streql(a: []const u8, b: []const u8) bool {
+    return std.mem.eql(u8, a, b);
 }
 
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+pub fn main() !void {
+    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
+    const gpa = general_purpose_allocator.allocator();
+    const args = try std.process.argsAlloc(gpa);
+    defer std.process.argsFree(gpa, args);
+
+    if (args.len < 2) {
+        std.debug.print("usage: {s} <command> [args...]\n", .{args[0]});
+        return;
+    }
+
+    if (streql(args[1], "help")) {
+        std.debug.print(
+            \\ usage: {s} <command> [args...]
+            \\   help: show this help message
+            \\   install: install a version of zig
+            \\   uninstall: uninstall a version of zig
+        , .{
+            args[0],
+        });
+        return;
+    }
+
+    if (streql(args[1], "install")) {
+        if (args.len > 2) {
+            std.debug.print("usage: {s} {s}\n", .{ args[0], args[1] });
+            try install(args[2]);
+        } else {
+            try install("latest");
+        }
+        return;
+    } else if (streql(args[1], "uninstall") and args.len == 2) {
+        std.debug.print("unknown command: {s}\n", .{args[1]});
+    }
+}
+
+fn install(tag: []const u8) !void {
+    if (streql(tag, "latest")) {
+        std.debug.print("installing latest\n", .{});
+        return;
+    }
+
+    std.debug.print("installing {s}\n", .{tag});
 }
